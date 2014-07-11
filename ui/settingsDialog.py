@@ -25,12 +25,8 @@ class SettingsDialog(wx.Dialog):
         panel = wx.Panel(self)
         mainSizer = wx.BoxSizer(wx.VERTICAL)
         labelSizer = wx.BoxSizer(wx.VERTICAL)
-        #inputSizer = wx.BoxSizer(wx.VERTICAL)
-        #actionSizer = wx.BoxSizer(wx.VERTICAL)
         topSizer = wx.BoxSizer(wx.HORIZONTAL)
         topSizer.Add(labelSizer, 0, wx.ALL | wx.EXPAND, 5)
-        #topSizer.Add(inputSizer, 0, wx.ALL | wx.EXPAND, 5)
-        #topSizer.Add(actionSizer, 0, wx.ALL | wx.EXPAND, 5)
         mainSizer.Add(topSizer, 0, wx.ALL | wx.EXPAND, 5)
 
         #File path
@@ -53,6 +49,30 @@ class SettingsDialog(wx.Dialog):
         self.__separatorInput = wx.TextCtrl(panel, wx.ID_ANY)
         self.__separatorInput.SetMaxLength(1)
         sepSizer.Add(self.__separatorInput, 0, wx.ALL | wx.EXPAND, 5)
+        self.Bind(wx.EVT_TEXT, self.__onSeparatorTextChange, self.__separatorInput)
+
+        #Separator description
+        self.__separatorDesc = wx.StaticText(panel, wx.ID_ANY, _('Filename structure with above separator: bpm*category*songtitle*artist.wav'))
+        labelSizer.Add(self.__separatorDesc, 0, wx.ALL, 5)
+
+        #step change
+        stepSizer = wx.BoxSizer(wx.HORIZONTAL)
+        stepLbl = wx.StaticText(panel, wx.ID_ANY, 
+                                _('Number of steps to add/substract when BPM is changed:'))
+        stepSizer.Add(stepLbl, 1, wx.ALL | wx.EXPAND, 5)
+
+        step = []
+        for x in range(1, 21):
+            step.append(str(x))
+
+        for y in range(25, 101, 5):
+            step.append(str(y))
+
+        self.__stepCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY, value=step[0],
+                                       choices=step)
+        stepSizer.Add(self.__stepCombo, 0, wx.ALL, 5)
+        labelSizer.Add(stepSizer, 0, wx.ALL, 5)
+        
 
         #Buttons
         labelSizer.Add(wx.StaticLine(panel, wx.ID_ANY), 0, wx.ALL | wx.EXPAND, 5)
@@ -64,14 +84,6 @@ class SettingsDialog(wx.Dialog):
         btnSizer.Add(saveBtn, 0, wx.ALL, 5)
         btnSizer.Add(cancelBtn, 0, wx.ALL, 5)
         mainSizer.Add(btnSizer, 0, wx.BOTTOM | wx.ALIGN_CENTER, 5)
-
-        """ make own dialog
-        addCategoryLbl = wx.StaticText(panel, wx.ID_ANY, _('Add category name:'))
-        labelSizer.Add(addCategoryLbl, 1, wx.ALL, 5)
-        addCatTokenLbl = wx.StaticText(panel, wx.ID_ANY, 
-                                       _('Character in filename representing category:'))
-        labelSizer.Add(addCatTokenLbl, 1, wx.ALL, 5)
-        """
 
         panel.SetSizer(mainSizer)
         mainSizer.Fit(self)
@@ -85,6 +97,12 @@ class SettingsDialog(wx.Dialog):
                                 
         self.__fileInput.SetValue(fileDialog.GetPath())
 
+    def __onSeparatorTextChange(self, event):
+        """Method is called when text in separator input is changed."""
+
+        token = self.__separatorInput.GetValue()
+        self.__separatorDesc.SetLabel(_('Filename structure with above separator: bpm' + token +
+                                        'category' + token + 'songtitle' + token + 'atrist.wav'))
     
     def __onSave(self, event):
         """Save button clicked."""
