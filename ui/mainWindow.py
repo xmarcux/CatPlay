@@ -4,6 +4,7 @@
 import wx
 import settingsDialog as sDialog
 import categoryDialog as cDialog
+import db.file as f
 
 class MainWindow (wx.Frame):
     """Main window for application."""
@@ -13,6 +14,11 @@ class MainWindow (wx.Frame):
 
         wx.Frame.__init__(self, None, title=_('Cat Play'), size=(300, 300))
         self.__panel = wx.Panel(self, wx.ID_ANY)
+
+        #Get properties from file
+        f.setProperty("Aname", 12)
+        print(f.getProperties())
+        self.__bpmStep = 10
 
         self.CreateStatusBar()
         self.SetMenuBar(self.__createMenu())
@@ -123,7 +129,9 @@ class MainWindow (wx.Frame):
         fromBpmSizer.Add(self.__fromBpmLbl, 1, wx.ALL | wx.ALIGN_CENTER, 5)
         btnSizer = wx.BoxSizer(wx.HORIZONTAL)
         fromAddBtn = wx.Button(self.__panel, wx.ID_ANY, "+")
+        self.Bind(wx.EVT_BUTTON, self.__onFromBpmPlus, fromAddBtn)
         fromSubBtn = wx.Button(self.__panel, wx.ID_ANY, "-")
+        self.Bind(wx.EVT_BUTTON, self.__onFromBpmMinus, fromSubBtn)
         btnSizer.Add(fromAddBtn, 0, wx.ALL, 5)
         btnSizer.Add(fromSubBtn, 0, wx.ALL, 5)
         fromBpmSizer.Add(btnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
@@ -137,7 +145,9 @@ class MainWindow (wx.Frame):
         toBpmSizer.Add(self.__toBpmLbl, 1, wx.ALL | wx.ALIGN_CENTER, 5)
         toBtnSizer = wx.BoxSizer(wx.HORIZONTAL)
         toAddBtn = wx.Button(self.__panel, wx.ID_ANY, "+")
+        self.Bind(wx.EVT_BUTTON, self.__onToBpmPlus, toAddBtn)
         toSubBtn = wx.Button(self.__panel, wx.ID_ANY, "-")
+        self.Bind(wx.EVT_BUTTON, self.__onToBpmMinus, toSubBtn)
         toBtnSizer.Add(toAddBtn, 0, wx.ALL, 5)
         toBtnSizer.Add(toSubBtn, 0, wx.ALL, 5)
         toBpmSizer.Add(toBtnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
@@ -167,7 +177,9 @@ class MainWindow (wx.Frame):
         timeBoxSizer.Add(self.__timeCheckBox, 0, wx.ALL | wx.ALIGN_CENTER, 5)
         timeBtnSizer = wx.BoxSizer(wx.HORIZONTAL)
         timeAddBtn = wx.Button(self.__panel, wx.ID_ANY, "+")
+        self.Bind(wx.EVT_BUTTON, self.__onTimePlus, timeAddBtn)
         timeSubBtn = wx.Button(self.__panel, wx.ID_ANY, "-")
+        self.Bind(wx.EVT_BUTTON, self.__onTimeMinus, timeSubBtn)
         timeBtnSizer.Add(timeAddBtn, 0, wx.ALL, 5)
         timeBtnSizer.Add(timeSubBtn, 0, wx.ALL, 5)
         timeBoxSizer.Add(timeBtnSizer, 0, wx.ALL, 5)
@@ -268,3 +280,84 @@ class MainWindow (wx.Frame):
         """Menu help, about is clicked."""
 
         wx.AboutBox(self.__aboutInfo)
+
+    def __onFromBpmPlus(self, event):
+        """Plus button from BPM is clicked."""
+
+        newValue = int(self.__fromBpmLbl.GetLabel()) + self.__bpmStep
+        if newValue > int(self.__toBpmLbl.GetLabel()):
+            newValue = int(self.__toBpmLbl.GetLabel())
+
+        self.__fromBpmLbl.SetLabel(str(newValue))
+
+    def __onFromBpmMinus(self, event):
+        """Minus button from BPM is clicked."""
+
+        newValue = int(self.__fromBpmLbl.GetLabel()) - self.__bpmStep
+        if newValue < 0:
+            newValue = 0
+
+        self.__fromBpmLbl.SetLabel(str(newValue))
+
+    def __onToBpmPlus(self, event):
+        """Plus button to BPM is clicked."""
+  
+        newValue = int(self.__toBpmLbl.GetLabel()) + self.__bpmStep
+        if newValue > 500:
+            newValue = 500
+
+        self.__toBpmLbl.SetLabel(str(newValue))
+
+    def __onToBpmMinus(self, event):
+        """Minus button to BPM is clicked."""
+
+        newValue = int(self.__toBpmLbl.GetLabel()) - self.__bpmStep
+        if newValue < int(self.__fromBpmLbl.GetLabel()):
+            newValue = int(self.__fromBpmLbl.GetLabel())
+
+        self.__toBpmLbl.SetLabel(str(newValue))
+
+    def __onTimePlus(self, event):
+        """Plus button on song time clicked."""
+
+        if self.__timeCheckBox.GetValue():
+            min = int(self.__timeCheckBox.GetLabel().split(':')[0])
+            sec = int(self.__timeCheckBox.GetLabel().split(':')[1])
+            if min < 20:
+                if sec >= 55:
+                    sec = 0
+                    min += 1
+                else:
+                    sec += 5
+
+                sMin = str(min)
+                sSec = str(sec)
+                if min < 10:
+                    sMin = '0' + sMin
+                if sec < 10:
+                    sSec = '0' + sSec
+
+                self.__timeCheckBox.SetLabel(sMin + ':' + sSec)
+
+    def __onTimeMinus(self, event):
+        """Minus button on song time clicked."""
+
+        if self.__timeCheckBox.GetValue():
+            min = int(self.__timeCheckBox.GetLabel().split(':')[0])
+            sec = int(self.__timeCheckBox.GetLabel().split(':')[1])
+            if not (min == 0 and sec == 0):
+                if sec == 0:
+                    sec = 55
+                    min -= 1
+                else:
+                    sec -= 5
+
+                sMin = str(min)
+                sSec = str(sec)
+                if min < 10:
+                    sMin = '0' + sMin
+                if sec < 10:
+                    sSec = '0' + sSec
+
+                self.__timeCheckBox.SetLabel(sMin + ':' + sSec)
+
