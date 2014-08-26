@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import wx
+import filectrl
 
 class AddCategoryDialog(wx.Dialog):
     """
@@ -62,12 +63,22 @@ class AddCategoryDialog(wx.Dialog):
     def __onSave(self, event):
         """Save button is clicked."""
 
-        error_msg = ""
-        if self.__catInput.GetValue() == "":
-            error_msg = "Specify category name.\n"
+        categories = filectrl.getCategories()
+        catInput = self.__catInput.GetValue()
+        tokenInput = self.__tokenInput.GetValue()
 
-        if self.__tokenInput.GetValue() == "":
-            error_msg += "Specify category character."
+        error_msg = ""
+        if catInput == "":
+            error_msg = _("Specify category name.\n")
+
+        if catInput in categories.values():
+            error_msg += _("Category does already exist.\n Specify a new name.")
+
+        if tokenInput == "":
+            error_msg += _("Specify category character.")
+
+        if tokenInput in categories:
+            error_msg += _("Category character does alreay exists.\n Specify a new character.")
 
         if error_msg:
             error_msg = "Error saving new category:\n\n" + error_msg
@@ -75,7 +86,8 @@ class AddCategoryDialog(wx.Dialog):
             dialog.ShowModal()
             dialog.Destroy()
         else:
-            print('Saving...')
+            filectrl.addCategory(self.__tokenInput.GetValue(), self.__catInput.GetValue())
+            self.GetParent().updateCategories()
             self.Destroy()
 
     def __onCancel(self, event):
@@ -115,12 +127,19 @@ class DeleteCategoryDialog(wx.Dialog):
         delText = wx.StaticText(panel, wx.ID_ANY, _('Choose category to delete:'))
         inputSizer.Add(delText, 0, wx.ALL | wx.EXPAND, 5)
         
-        #test (get categories from file)
-        categories = ['Bugg', 'Vals', 'Foxtrot', 'Jazzdans']
-        #end_test
+        #Get categories from file
+        cat = filectrl.getCategories().values()
 
-        self.__delCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY,
-                                      value=categories[0], choices=categories)
+        cat.sort()
+        categories = cat
+
+        if len(categories):
+            self.__delCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY,
+                                          value=categories[0], choices=categories)
+        else:
+            self.__delCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY,
+                                          choices=categories)
+
         inputSizer.Add(self.__delCombo, 1, wx.ALL | wx.EXPAND, 5)
 
         #buttons
@@ -146,14 +165,27 @@ class DeleteCategoryDialog(wx.Dialog):
     def __onDelete(self, event):
         """Delete button is clicked."""
 
-        catTxt = self.__delCombo.GetValue()
-        dialog = wx.MessageDialog(self, _('Do you want to delete category: ') + 
-                                  catTxt, _('Delete'), 
-                                  wx.YES_NO | wx.ICON_QUESTION)
+        if self.__delCombo.GetCount():
+            catTxt = self.__delCombo.GetValue()
+            dialog = wx.MessageDialog(self, _('Do you want to delete category: ') + 
+                                      catTxt, _('Delete'), 
+                                      wx.YES_NO | wx.ICON_QUESTION)
 
-        if wx.ID_YES == dialog.ShowModal():
-            #delete category from file and update combo
-            confirm = wx.MessageDialog(self, _('Category successfully deleted: ') +
-                                       catTxt, _('Deleted'),
-                                       wx.OK | wx.ICON_INFORMATION)
-            confirm.ShowModal()
+            if wx.ID_YES == dialog.ShowModal():
+                #delete category from file and update combo
+                newCats = filectrl.deleteCategory(catTxt).values()
+
+                newCats.sort()
+                if len(newCats):
+                    self.__delCombo.SetItems(newCats)
+                    self.__delCombo.SetSelection(0)
+                else:
+                    self.__delCombo.Clear()
+                    self.__delCombo.SetValue("")
+
+                self.GetParent().updateCategories()
+
+                confirm = wx.MessageDialog(self, _('Category successfully deleted: ') +
+                                           catTxt, _('Deleted'),
+                                           wx.OK | wx.ICON_INFORMATION)
+                confirm.ShowModal()

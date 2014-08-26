@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import wx
+import os
+import sys
 import settingsDialog as sDialog
 import categoryDialog as cDialog
-import db.file as f
+import showCategoryDialog as showDialog
+import filectrl as f
 
 class MainWindow (wx.Frame):
     """Main window for application."""
@@ -14,24 +17,44 @@ class MainWindow (wx.Frame):
 
         wx.Frame.__init__(self, None, title=_('Cat Play'), size=(300, 300))
         self.__panel = wx.Panel(self, wx.ID_ANY)
+        self.Bind(wx.EVT_SIZE, self.__onResize)
+
+        #Set window image
+        image = wx.Image('db' + os.sep + 'img' + os.sep + 'catplay.png', 
+                         wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        icon = wx.EmptyIcon()
+        icon.CopyFromBitmap(image)
+        self.SetIcon(icon)
+
+        #Get music files from directory
+        self.__musicDict = f.getMusicFiles()
 
         #Get properties from file
-        f.setProperty("Aname", 12)
-        print(f.getProperties())
-        self.__bpmStep = 10
+        self.__prop = f.getProperties()
+
+        if "bpmStep" in self.__prop:
+            self.__bpmStep = int(self.__prop["bpmStep"])
+        else:
+            self.__bpmStep = 10
 
         self.CreateStatusBar()
         self.SetMenuBar(self.__createMenu())
 
-        self.__panel = wx.Panel(self, wx.ID_ANY)
         self.__createView()
-
+        self.__setupKeybindings()
         self.__setupAboutInfo()
+
+        self.Bind(wx.EVT_CLOSE, self.__onClose)
 
         self.__panel.SetSizerAndFit(self.__mainSizer)
         self.Fit()
         self.SetMinSize(self.GetEffectiveMinSize())
         self.Center()
+        self.__panel.SetFocus()
+
+        self.__sizeRatioHeight = (self.GetSize().GetHeight()/self.__fromBpmLbl.GetFont().GetPointSize())
+        self.__sizeRatioWidth = self.GetSize().GetWidth()/self.__fromBpmLbl.GetFont().GetPointSize()
+
         self.Show(True)
 
 
@@ -40,11 +63,6 @@ class MainWindow (wx.Frame):
 
         #File menu
         fileMenu = wx.Menu()
-        fileAddCat = fileMenu.Append(wx.ID_ADD, _('&Add category...'), _('Adds a category to library'))
-        self.Bind(wx.EVT_MENU, self.__onAddCategory, fileAddCat)
-        fileDelCat = fileMenu.Append(wx.ID_REMOVE, _('&Delete category...'), _('Deletes category from library'))
-        self.Bind(wx.EVT_MENU, self.__onDeleteCategory, fileDelCat)
-        fileMenu.AppendSeparator()
         fileExit = fileMenu.Append(wx.ID_EXIT, _('E&xit'), _('Terminate application'))
         self.Bind(wx.EVT_MENU, self.__onExit, fileExit)
 
@@ -60,6 +78,17 @@ class MainWindow (wx.Frame):
         playMenu.AppendSeparator()
         playNext = playMenu.Append(wx.ID_FORWARD, _('&Next song'), _('Plays next song in list'))
         self.Bind(wx.EVT_MENU, self.__onNext, playNext)
+
+        #Category menu
+        catMenu = wx.Menu()
+        catShowCat = catMenu.Append(wx.ID_ANY, _('&Show categories...'), _('Show files in categories'))
+        self.Bind(wx.EVT_MENU, self.__onShowCategory, catShowCat)
+        catMenu.AppendSeparator()
+        catAddCat = catMenu.Append(wx.ID_ADD, _('&Add category...'), _('Adds a category to library'))
+        self.Bind(wx.EVT_MENU, self.__onAddCategory, catAddCat)
+        catDelCat = catMenu.Append(wx.ID_REMOVE, _('&Delete category...'), _('Deletes category from library'))
+        self.Bind(wx.EVT_MENU, self.__onDeleteCategory, catDelCat)
+
 
         #Tools menu
         toolsMenu = wx.Menu()
@@ -77,6 +106,7 @@ class MainWindow (wx.Frame):
         menubar = wx.MenuBar()
         menubar.Append(fileMenu, _('&File'))
         menubar.Append(playMenu, _('&Play'))
+        menubar.Append(catMenu, _('&Category'))
         menubar.Append(toolsMenu, _('&Tools'))
         menubar.Append(helpMenu, _('&Help'))
 
@@ -86,107 +116,224 @@ class MainWindow (wx.Frame):
         """Creates the view in the main window."""
 
         self.__mainSizer = wx.BoxSizer(wx.VERTICAL)
-        #topSizer = wx.BoxSizer(wx.VERTICAL)
-        #self.__mainSizer.Add(topSizer, 1, wx.ALL | wx.EXPAND, 5)
-        
+
         #Play buttons
         playBtnSizer = wx.BoxSizer(wx.HORIZONTAL)
-        btnPrevious = wx.Button(self.__panel, wx.ID_ANY, _('Previous'))
+        bpmPrevious = wx.Image("db" + os.sep + "img" + os.sep + "previous.png", 
+                               wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        bpmPreviousPressed = wx.Image("db" + os.sep + "img" + os.sep + "previous_pressed.png",
+                                      wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        btnPrevious = wx.BitmapButton(self.__panel, wx.ID_ANY, bpmPrevious)
+        btnPrevious.SetBitmapSelected(bpmPreviousPressed)
         self.Bind(wx.EVT_BUTTON, self.__onPrevious, btnPrevious)
         playBtnSizer.Add(btnPrevious, 0, wx.ALL, 5)
-        self.__btnPlay = wx.Button(self.__panel, wx.ID_ANY, _('Play'))
+
+        self.__bpmPlay = wx.Image("db" + os.sep + "img" + os.sep + "play.png", 
+                           wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        self.__bpmPlayPressed = wx.Image("db" + os.sep + "img" + os.sep + "play_pressed.png",
+                                         wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        self.__btnPlay = wx.BitmapButton(self.__panel, wx.ID_ANY, self.__bpmPlay)
+        self.__btnPlay.SetBitmapSelected(self.__bpmPlayPressed)
+        self.__bpmPause = wx.Image("db" + os.sep + "img" + os.sep + "pause.png",
+                                   wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        self.__bpmPausePressed = wx.Image("db" + os.sep + "img" + os.sep + "pause_pressed.png",
+                                          wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+
         self.__btnPlay.play = "pause"
         self.Bind(wx.EVT_BUTTON, self.__onPlay, self.__btnPlay)
         playBtnSizer.Add(self.__btnPlay, 0, wx.ALL, 5)
-        btnStop = wx.Button(self.__panel, wx.ID_ANY, _('Stop'))
+
+        bpmStop = wx.Image("db" + os.sep + "img" + os.sep + "stop.png", 
+                           wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        bpmStopPressed = wx.Image("db" + os.sep + "img" + os.sep + "stop_pressed.png", 
+                                  wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        btnStop = wx.BitmapButton(self.__panel, wx.ID_ANY, bpmStop)
+        btnStop.SetBitmapSelected(bpmStopPressed)
         self.Bind(wx.EVT_BUTTON, self.__onStop, btnStop)
         playBtnSizer.Add(btnStop, 0, wx.ALL, 5)
-        btnNext = wx.Button(self.__panel, wx.ID_ANY, _('Next'))
+
+        bpmNext = wx.Image("db" + os.sep + "img" + os.sep + "next.png", 
+                           wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        bpmNextPressed = wx.Image("db" + os.sep + "img" + os.sep + "next_pressed.png", 
+                                  wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        btnNext = wx.BitmapButton(self.__panel, wx.ID_ANY, bpmNext)
+        btnNext.SetBitmapSelected(bpmNextPressed)
         self.Bind(wx.EVT_BUTTON, self.__onNext, btnNext)
         playBtnSizer.Add(btnNext, 0, wx.ALL, 5)
         self.__mainSizer.Add(playBtnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
 
         #Info current song
+        txtFont = wx.Font(18, wx.DECORATIVE, wx.NORMAL, wx.NORMAL)
         infoBox = wx.StaticBox(self.__panel, wx.ID_ANY, _('Current song playing:'))
         infoSizer = wx.StaticBoxSizer(infoBox, wx.HORIZONTAL)
         artistLbl = wx.StaticText(self.__panel, wx.ID_ANY, _('Artist:'))
+        artistLbl.SetFont(txtFont)
         self.__currentArtistLbl = wx.StaticText(self.__panel, wx.ID_ANY, _('De lyckliga kompisarna'))
+        self.__currentArtistLbl.SetFont(txtFont)
         songLbl = wx.StaticText(self.__panel, wx.ID_ANY, _('Title:'))
+        songLbl.SetFont(txtFont)
         self.__currentTitleLbl = wx.StaticText(self.__panel, wx.ID_ANY, _('Finansministern'))
+        self.__currentTitleLbl.SetFont(txtFont)
         infoSizer.Add(artistLbl, 0, wx.ALL | wx.ALIGN_LEFT, 5)
-        infoSizer.Add(self.__currentArtistLbl, 0, wx.ALL | wx.ALIGN_LEFT, 5)
+        infoSizer.Add(self.__currentArtistLbl, 1, wx.ALL | wx.ALIGN_LEFT, 5)
         infoSizer.Add(songLbl, 0, wx.ALL | wx.ALIGN_RIGHT, 5)
-        infoSizer.Add(self.__currentTitleLbl, 0, wx.ALL | wx.ALIGN_RIGHT, 5)
+        infoSizer.Add(self.__currentTitleLbl, 1, wx.ALL | wx.ALIGN_RIGHT, 5)
         self.__mainSizer.Add(infoSizer, 0, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER, 5)
 
         #from BPM control
         bpmSizer = wx.BoxSizer(wx.HORIZONTAL)
         fromBpmBox = wx.StaticBox(self.__panel, wx.ID_ANY, _('From BPM:'))
-        fromBpmSizer = wx.StaticBoxSizer(fromBpmBox, wx.VERTICAL)
-        self.__fromBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, "140")
-        bpmFont = wx.Font(18, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
+        self.__fromBpmSizer = wx.StaticBoxSizer(fromBpmBox, wx.VERTICAL)
+        if "fromBpm" in self.__prop:
+            self.__fromBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, self.__prop["fromBpm"])
+        else:
+            self.__fromBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, "140")
+        bpmFont = wx.Font(80, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
         self.__fromBpmLbl.SetFont(bpmFont)
-        fromBpmSizer.Add(self.__fromBpmLbl, 1, wx.ALL | wx.ALIGN_CENTER, 5)
+        self.__fromBpmSizer.Add(self.__fromBpmLbl, 1, wx.ALL, 5)
         btnSizer = wx.BoxSizer(wx.HORIZONTAL)
-        fromAddBtn = wx.Button(self.__panel, wx.ID_ANY, "+")
+        self.__bpmPlus = wx.Image("db" + os.sep + "img" + os.sep + "plus.png",
+                                  wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        self.__bpmPlusPressed = wx.Image("db" +os.sep + "img" + os.sep + "plus_pressed.png",
+                                         wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        fromAddBtn = wx.BitmapButton(self.__panel, wx.ID_ANY, self.__bpmPlus)
+        fromAddBtn.SetBitmapSelected(self.__bpmPlusPressed)
         self.Bind(wx.EVT_BUTTON, self.__onFromBpmPlus, fromAddBtn)
-        fromSubBtn = wx.Button(self.__panel, wx.ID_ANY, "-")
+        self.__bpmMinus = wx.Image("db" + os.sep + "img" + os.sep + "minus.png",
+                                   wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        self.__bpmMinusPressed = wx.Image("db" + os.sep + "img" + os.sep + "minus_pressed.png",
+                                          wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        fromSubBtn = wx.BitmapButton(self.__panel, wx.ID_ANY, self.__bpmMinus)
+        fromSubBtn.SetBitmapSelected(self.__bpmMinusPressed)
         self.Bind(wx.EVT_BUTTON, self.__onFromBpmMinus, fromSubBtn)
         btnSizer.Add(fromAddBtn, 0, wx.ALL, 5)
         btnSizer.Add(fromSubBtn, 0, wx.ALL, 5)
-        fromBpmSizer.Add(btnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-        bpmSizer.Add(fromBpmSizer, 0, wx.ALL, 5)
+        self.__fromBpmSizer.Add(btnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        bpmSizer.Add(self.__fromBpmSizer, 0, wx.ALL, 5)
 
         #to BPM control
         toBpmBox = wx.StaticBox(self.__panel, wx.ID_ANY, _('To BPM:'))
         toBpmSizer = wx.StaticBoxSizer(toBpmBox, wx.VERTICAL)
-        self.__toBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, "160")
+        if "toBpm" in self.__prop:
+            self.__toBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, self.__prop["toBpm"])
+        else: 
+            self.__toBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, "160")
         self.__toBpmLbl.SetFont(bpmFont)
         toBpmSizer.Add(self.__toBpmLbl, 1, wx.ALL | wx.ALIGN_CENTER, 5)
         toBtnSizer = wx.BoxSizer(wx.HORIZONTAL)
-        toAddBtn = wx.Button(self.__panel, wx.ID_ANY, "+")
+        toAddBtn = wx.BitmapButton(self.__panel, wx.ID_ANY, self.__bpmPlus)
+        toAddBtn.SetBitmapSelected(self.__bpmPlusPressed)
         self.Bind(wx.EVT_BUTTON, self.__onToBpmPlus, toAddBtn)
-        toSubBtn = wx.Button(self.__panel, wx.ID_ANY, "-")
+        toSubBtn = wx.BitmapButton(self.__panel, wx.ID_ANY, self.__bpmMinus)
+        toSubBtn.SetBitmapSelected(self.__bpmMinusPressed)
         self.Bind(wx.EVT_BUTTON, self.__onToBpmMinus, toSubBtn)
         toBtnSizer.Add(toAddBtn, 0, wx.ALL, 5)
         toBtnSizer.Add(toSubBtn, 0, wx.ALL, 5)
         toBpmSizer.Add(toBtnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
         bpmSizer.Add(toBpmSizer, 0, wx.ALL, 5)
-        self.__mainSizer.Add(bpmSizer, 0, wx.ALL | wx.EXPAND, 5)
+
+        self.__mainSizer.Add(bpmSizer, 1, wx.ALL | wx.ALIGN_CENTER, 5)
 
         #Category
-        categorySizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.__categorySizer = wx.BoxSizer(wx.HORIZONTAL)
         categoryLbl = wx.StaticText(self.__panel, wx.ID_ANY, _('Category:'))
-        categorySizer.Add(categoryLbl, 0, wx.ALL, 5)
-        #test
-        coi = ['Bugg', 'Jazz', 'Foxstrot', 'Vals']
-        #test end
-        self.__categoryCombo = wx.ComboBox(self.__panel, wx.ID_ANY, style=wx.CB_READONLY, 
-                                           value=coi[0], choices=coi)
-        categorySizer.Add(self.__categoryCombo, 0, wx.ALL, 5)
-        self.__mainSizer.Add(categorySizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        categoryLbl.SetFont(txtFont)
+        self.__categorySizer.Add(categoryLbl, 0, wx.ALL, 5)
+        #get categories from file
+        coi = f.getCategories().values()
+        coi.sort()
+
+        if len(coi):
+            index = 0
+            if "category" in self.__prop:
+                if (self.__prop["category"] in coi) and (len(coi) > 0):
+                    index = coi.index(self.__prop["category"])
+            if sys.platform == 'win32':
+                self.__categoryCombo = wx.ComboBox(self.__panel, wx.ID_ANY, style=wx.CB_READONLY, 
+                                                   value=coi[index], choices=coi)
+            else:
+                self.__categoryCombo = wx.Choice(self.__panel, wx.ID_ANY, style=wx.CB_READONLY, 
+                                                 choices=coi)
+        else:
+            if sys.platform == 'win32':
+                self.__categoryCombo = wx.ComboBox(self.__panel, wx.ID_ANY, style=wx.CB_READONLY, 
+                                                   choices=coi)
+            else: 
+                self.__categoryCombo = wx.Choice(self.__panel, wx.ID_ANY, style=wx.CB_READONLY, 
+                                                 choices=coi)
+        self.__categoryCombo.SetFont(txtFont)
+        self.__categorySizer.Add(self.__categoryCombo, 0, wx.ALL, 5)
+        self.__mainSizer.Add(self.__categorySizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
 
         #Song time
         timeBox = wx.StaticBox(self.__panel, wx.ID_ANY, _('Time between song changes:'))
         timeBoxSizer = wx.StaticBoxSizer(timeBox, wx.VERTICAL)
-        self.__timeCheckBox = wx.CheckBox(self.__panel, wx.ID_ANY, "02:30")
-        timeFont = wx.Font(12, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
+        if "time" in self.__prop:
+            self.__timeCheckBox = wx.CheckBox(self.__panel, wx.ID_ANY, self.__prop["time"])
+        else:
+            self.__timeCheckBox = wx.CheckBox(self.__panel, wx.ID_ANY, "02:30")
+        timeFont = wx.Font(20, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
         self.__timeCheckBox.SetFont(timeFont)
         self.__timeCheckBox.SetToolTip(wx.ToolTip(
-                                       _('Anable/disable time between song changes, if disabled full songs will be played.')))
+                                       _('Enable/disable time between song changes, if disabled full songs will be played.')))
         timeBoxSizer.Add(self.__timeCheckBox, 0, wx.ALL | wx.ALIGN_CENTER, 5)
         timeBtnSizer = wx.BoxSizer(wx.HORIZONTAL)
-        timeAddBtn = wx.Button(self.__panel, wx.ID_ANY, "+")
+        timeAddBtn = wx.BitmapButton(self.__panel, wx.ID_ANY, self.__bpmPlus)
+        timeAddBtn.SetBitmapSelected(self.__bpmPlusPressed)
         self.Bind(wx.EVT_BUTTON, self.__onTimePlus, timeAddBtn)
-        timeSubBtn = wx.Button(self.__panel, wx.ID_ANY, "-")
+        timeSubBtn = wx.BitmapButton(self.__panel, wx.ID_ANY, self.__bpmMinus)
+        timeSubBtn.SetBitmapSelected(self.__bpmMinusPressed)
         self.Bind(wx.EVT_BUTTON, self.__onTimeMinus, timeSubBtn)
         timeBtnSizer.Add(timeAddBtn, 0, wx.ALL, 5)
         timeBtnSizer.Add(timeSubBtn, 0, wx.ALL, 5)
-        timeBoxSizer.Add(timeBtnSizer, 0, wx.ALL, 5)
+        timeBoxSizer.Add(timeBtnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
         self.__mainSizer.Add(timeBoxSizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
 
         self.__panel.SetSizer(self.__mainSizer)
         self.__mainSizer.Fit(self)
+
+    def __setupKeybindings(self):
+        """
+        Setup the key bindings 
+        for buttons in main window.
+        """
+
+        keyPlay = wx.NewId()
+        wx.EVT_MENU(self, keyPlay, self.__onPlay)
+        keyStop = wx.NewId()
+        wx.EVT_MENU(self, keyStop, self.__onStop)
+        keyPrevious = wx.NewId()
+        wx.EVT_MENU(self, keyPrevious, self.__onPrevious)
+        keyNext = wx.NewId()
+        wx.EVT_MENU(self, keyNext, self.__onNext)
+
+        keyFromBpmPlus = wx.NewId()
+        wx.EVT_MENU(self, keyFromBpmPlus, self.__onFromBpmPlus)
+        keyFromBpmMinus = wx.NewId()
+        wx.EVT_MENU(self, keyFromBpmMinus, self.__onFromBpmMinus)
+
+        keyToBpmPlus = wx.NewId()
+        wx.EVT_MENU(self, keyToBpmPlus, self.__onToBpmPlus)
+        keyToBpmMinus = wx.NewId()
+        wx.EVT_MENU(self, keyToBpmMinus, self.__onToBpmMinus)
+
+        keyTimePlus = wx.NewId()
+        wx.EVT_MENU(self, keyTimePlus, self.__onTimePlus)
+        keyTimeMinus = wx.NewId()
+        wx.EVT_MENU(self, keyTimeMinus, self.__onTimeMinus)
+
+        acc_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('P'), keyPlay),
+                                       (wx.ACCEL_CTRL, ord('S'), keyStop),
+                                       (wx.ACCEL_CTRL, ord('B'), keyPrevious),
+                                       (wx.ACCEL_CTRL, ord('N'), keyNext),
+                                       (wx.ACCEL_CTRL, ord('+'), keyFromBpmPlus),
+                                       (wx.ACCEL_CTRL, ord('-'), keyFromBpmMinus),
+                                       (wx.ACCEL_CTRL | wx.ACCEL_ALT, ord('+'), keyToBpmPlus),
+                                       (wx.ACCEL_CTRL | wx.ACCEL_ALT, ord('-'), keyToBpmMinus),
+                                       (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('+'), keyTimePlus),
+                                       (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('-'), keyTimeMinus)
+                                     ])
+        self.SetAcceleratorTable(acc_tbl)
 
     def __setupAboutInfo(self):
         """Initialize the about info dialog."""
@@ -214,10 +361,46 @@ class MainWindow (wx.Frame):
                                   'Repro: https://github.com/xmarcux/catplay\n')
 
 
+    def updateCategories(self):
+        """
+        Get current categories 
+        from file and update combo.
+        Used when category is added
+        or deleted.
+        """
+
+        cat = f.getCategories().values()
+        cat.sort()
+        if len(cat):
+            self.__categoryCombo.SetItems(cat)
+            self.__categoryCombo.SetSelection(0)
+        else:
+            self.__categoryCombo.Clear()
+            self.__categoryCombo.SetValue("")
+
+
+    def updateProperties(self):
+        """
+        Get current properties
+        from file and update variables
+        in this instance.
+        """
+
+        prop = f.getProperties()
+        if "bpmStep" in prop:
+            self.__bpmStep = int(prop["bpmStep"])
+
     def __onExit(self, event):
         """Terminates application"""
 
         self.Close()
+
+    def __onShowCategory(self, event):
+        """Show category information dialog"""
+
+        dialog = showDialog.ShowCategoryDialog(self, self.__musicDict)
+        dialog.Center()
+        dialog.Show()
 
     def __onAddCategory(self, event):
         """Add a category to library"""
@@ -247,15 +430,21 @@ class MainWindow (wx.Frame):
         """Play button has been clicked."""
 
         if self.__btnPlay.play == "play":
-            self.__btnPlay.SetLabel(_('Play'))
+            self.__btnPlay.SetBitmapLabel(self.__bpmPlay)
+            self.__btnPlay.SetBitmapSelected(self.__bpmPlayPressed)
             self.__menuPlayPlay.SetText(_('Play'))
             self.SetStatusText(_('Pause'))
             self.__btnPlay.play = "pause"
         else:
-            self.__btnPlay.SetLabel(_('Pause'))
+            self.__btnPlay.SetBitmapLabel(self.__bpmPause)
+            self.__btnPlay.SetBitmapSelected(self.__bpmPausePressed)
             self.__menuPlayPlay.SetText(_('Pause'))
             self.SetStatusText(_('Play'))
             self.__btnPlay.play = "play"
+
+        #test
+        self.__currentArtistLbl.SetLabel("Testing artist name that is a very famous one")
+        self.__currentTitleLbl.SetLabel("A verry long song name that reaches quite a bit")
 
     def __onStop(self, event):
         """Stop to lay button has been clicked."""
@@ -263,7 +452,8 @@ class MainWindow (wx.Frame):
         self.SetStatusText(_('Stop'))
 
         if self.__btnPlay.play == "play":
-            self.__btnPlay.SetLabel(_('Play'))
+            self.__btnPlay.SetBitmapLabel(self.__bpmPlay)
+            self.__btnPlay.SetBitmapSelected(self.__bpmPlayPressed)
             self.__menuPlayPlay.SetText(_('Play'))
             self.__btnPlay.play = "stop"
 
@@ -361,3 +551,30 @@ class MainWindow (wx.Frame):
 
                 self.__timeCheckBox.SetLabel(sMin + ':' + sSec)
 
+    def __onClose(self, event):
+        """Is called when window is closing."""
+
+        f.setProperty("fromBpm", self.__fromBpmLbl.GetLabel())
+        f.setProperty("toBpm", self.__toBpmLbl.GetLabel())
+        f.setProperty("time", self.__timeCheckBox.GetLabel())
+        if sys.platform == 'win32':
+            f.setProperty("category", self.__categoryCombo.GetValue())
+
+        self.Destroy()
+
+    def __onResize(self, event):
+
+        self.SetSize(event.GetSize())
+        lblRatio = int(((event.GetSize().GetHeight()+event.GetSize().GetWidth())/2)
+                       /((self.__sizeRatioHeight+self.__sizeRatioWidth)/2))
+
+        bpmYBottom = self.__fromBpmSizer.GetPosition().Get()[1] +  self.__fromBpmSizer.GetSize().GetHeight()
+        catYTop = self.__categorySizer.GetPosition().Get()[1]
+        fnt = self.__fromBpmLbl.GetFont()
+
+        if (bpmYBottom < catYTop) or (lblRatio < fnt.GetPointSize()):
+            fnt.SetPointSize(lblRatio)
+            self.__fromBpmLbl.SetFont(fnt)
+            self.__toBpmLbl.SetFont(fnt)
+
+        event.Skip()

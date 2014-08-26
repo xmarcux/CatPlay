@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import wx
+import os.path
+import filectrl
 
 class SettingsDialog(wx.Dialog):
     """
@@ -29,12 +31,17 @@ class SettingsDialog(wx.Dialog):
         topSizer.Add(labelSizer, 0, wx.ALL | wx.EXPAND, 5)
         mainSizer.Add(topSizer, 0, wx.ALL | wx.EXPAND, 5)
 
+        properties = filectrl.getProperties()
+
         #File path
         filePathLbl = wx.StaticText(panel, wx.ID_ANY, _('Filepath to music base file directory:'))
         labelSizer.Add(filePathLbl, 0, wx.ALL, 1)
         fileInputSizer = wx.BoxSizer(wx.HORIZONTAL)
         labelSizer.Add(fileInputSizer, 1, wx.ALL | wx.EXPAND, 5)
         self.__fileInput = wx.TextCtrl(panel, wx.ID_ANY)
+
+        if "musicDir" in properties:
+            self.__fileInput.SetValue(properties["musicDir"])
         fileInputSizer.Add(self.__fileInput, 1, wx.ALL | wx.EXPAND, 5)
         browseBtn = wx.Button(panel, wx.ID_ANY, _('&Browse...'))
         self.Bind(wx.EVT_BUTTON, self.__onBrowse, browseBtn)
@@ -48,11 +55,23 @@ class SettingsDialog(wx.Dialog):
         sepSizer.Add(separatorLbl, 1, wx.ALL, 5)
         self.__separatorInput = wx.TextCtrl(panel, wx.ID_ANY)
         self.__separatorInput.SetMaxLength(1)
+
+        if "fileToken" in properties:
+            self.__separatorInput.SetValue(properties["fileToken"])
+
         sepSizer.Add(self.__separatorInput, 0, wx.ALL | wx.EXPAND, 5)
         self.Bind(wx.EVT_TEXT, self.__onSeparatorTextChange, self.__separatorInput)
 
         #Separator description
-        self.__separatorDesc = wx.StaticText(panel, wx.ID_ANY, _('Filename structure with above separator: bpm*category*songtitle*artist.wav'))
+        if "fileToken" in properties:
+            self.__separatorDesc = wx.StaticText(panel, wx.ID_ANY, 
+                                                 _('Filename structure with above separator: bpm' 
+                                                   + properties["fileToken"] + 'category' 
+                                                   + properties["fileToken"] + 'songtitle'
+                                                   + properties["fileToken"] + 'artist.wav'))
+        else:
+            self.__separatorDesc = wx.StaticText(panel, wx.ID_ANY, _('Filename structure with above separator:'))
+
         labelSizer.Add(self.__separatorDesc, 0, wx.ALL, 5)
 
         #step change
@@ -68,8 +87,12 @@ class SettingsDialog(wx.Dialog):
         for y in range(25, 101, 5):
             step.append(str(y))
 
-        self.__stepCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY, value=step[0],
-                                       choices=step)
+        if "bpmStep" in properties:
+            self.__stepCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY, 
+                                           value=properties["bpmStep"], choices=step)
+        else:
+            self.__stepCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY)
+
         stepSizer.Add(self.__stepCombo, 0, wx.ALL, 5)
         labelSizer.Add(stepSizer, 0, wx.ALL, 5)
         
@@ -107,9 +130,20 @@ class SettingsDialog(wx.Dialog):
     def __onSave(self, event):
         """Save button clicked."""
 
-        print('Saving')
-        self.Destroy()
+        fPath = self.__fileInput.GetValue()
 
+        if os.path.exists(fPath):
+            filectrl.setProperty("musicDir", fPath)
+            filectrl.setProperty("fileToken", self.__separatorInput.GetValue())
+            filectrl.setProperty("bpmStep", self.__stepCombo.GetValue())
+            self.GetParent().updateProperties()
+            self.Destroy()
+        else:
+            error_msg = _("Directory does not exist: ") + fPath + _("\nPlease, specify an existing directory")
+            dialog = wx.MessageDialog(self, error_msg, _("Directory does not exist"), 
+                                      wx.OK | wx.ICON_ERROR)
+            dialog.ShowModal()
+            dialog.Destroy()
 
     def __onCancel(self, event):
        """Cancel button clicked."""
