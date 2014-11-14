@@ -79,8 +79,9 @@ class ShowCategoryDialog(wx.Frame):
         if len(cat) > 0:
             self.__updateList(cat[0])
 
-        panel.SetSizer(mainSizer)
-        mainSizer.Fit(self)
+        panel.SetSizerAndFit(mainSizer)
+        self.Fit()
+        self.SetMinSize(self.GetEffectiveMinSize())
 
     def __categoryChanged(self, event):
         """Method is called when category in combobox changes."""
