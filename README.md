@@ -1,6 +1,6 @@
 CatPlay
 =======
-
+![CatPlay](db/img/catplay.png)
 Project is written with python and wxpython and delivered under GPL V3.
 
     CatPlay - Play your categorized songs.

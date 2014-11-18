@@ -406,7 +406,6 @@ class MainWindow (wx.Frame):
 
     def __onExit(self, event):
         """Terminates application"""
-
         self.Close()
 
     def __onShowCategory(self, event):
@@ -433,35 +432,41 @@ class MainWindow (wx.Frame):
     def __onPrevious(self, event):
         """Previous song button has been clicked."""
 
-        if self.__currentSongNumber <= 0:
-            self.__currentSongNumber = len(self.__playList) - 1
-        else:
-            self.__currentSongNumber -= 1
- 
-        self.__loadFile()
-        
         if self.__btnPlay.play == "play":
+            if self.__currentSongNumber <= 0:
+                self.__currentSongNumber = len(self.__playList) - 1
+            else:
+                self.__currentSongNumber -= 1
+ 
+            self.__loadFile()
+        
+            if self.__timeCheckBox.GetValue():
+                self.__timer.cancel()
+            
             self.__playCtrl.Play()
             self.__startTimer()
 
     def __onNext(self, event):
         """Next song button has been clicked."""
 
-        if self.__currentSongNumber >= len(self.__playList) + 1:
-            self.__currentSongNumber = 0
-        else:
-            self.__currentSongNumber += 1
-
-        self.__loadFile()
-
         if self.__btnPlay.play == "play":
+            if self.__currentSongNumber >= len(self.__playList) + 1:
+                self.__currentSongNumber = 0
+            else:
+                self.__currentSongNumber += 1
+
+            self.__loadFile()
+
+            if self.__timeCheckBox.GetValue():
+                self.__timer.cancel()
+
             self.__playCtrl.Play()
             self.__startTimer()
 
 
     def __onPlay(self, event):
         """Play button has been clicked."""
-        print("play button: " + self.__btnPlay.play)
+
         if self.__btnPlay.play == "play":
             self.__btnPlay.SetBitmapLabel(self.__bpmPlay)
             self.__btnPlay.SetBitmapSelected(self.__bpmPlayPressed)
@@ -477,6 +482,9 @@ class MainWindow (wx.Frame):
             self.__timeSubBtn.Enable()
             self.__categoryCombo.Enable()
             self.__playCtrl.Pause()
+            
+            if self.__timeCheckBox.GetValue():
+                self.__timer.cancel()
 
         else:
             self.__createPlayList()
@@ -501,7 +509,7 @@ class MainWindow (wx.Frame):
             self.__startTimer()
 
     def __onStop(self, event):
-        """Stop to lay button has been clicked."""
+        """Stop to play button has been clicked."""
 
         self.SetStatusText(_('Stop'))
 
@@ -518,6 +526,11 @@ class MainWindow (wx.Frame):
         self.__timeSubBtn.Enable()
         self.__categoryCombo.Enable()
         self.__playCtrl.Stop()
+
+        try:
+            self.__timer.cancel()
+        except:
+            pass
 
 
     def __onSettings(self, event):
@@ -634,12 +647,17 @@ class MainWindow (wx.Frame):
 
     def __onClose(self, event):
         """Is called when window is closing."""
-
         f.setProperty("fromBpm", self.__fromBpmLbl.GetLabel())
         f.setProperty("toBpm", self.__toBpmLbl.GetLabel())
         f.setProperty("time", self.__timeCheckBox.GetLabel())
         if sys.platform == 'win32':
             f.setProperty("category", self.__categoryCombo.GetValue())
+
+        try:
+            self.__playCtrl.Stop()
+            self.__timer.cancel()
+        except:
+            pass
 
         self.Destroy()
 
@@ -690,7 +708,6 @@ class MainWindow (wx.Frame):
         
         random.shuffle(self.__playList)
         self.__currentSongNumber = 0
-        print(self.__playList)
 
     def __loadFile(self):
         """
@@ -734,11 +751,9 @@ class MainWindow (wx.Frame):
         changes song and fades the
         new song in.
         """
-        print("fading...")
 
         vol = 1.0
         decrease = 1.0/self.__fadeTime
-        print("decrease: " + str(decrease))
 
         while vol > 0.0:
             self.__playCtrl.SetVolume(vol)
