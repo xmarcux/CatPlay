@@ -1,6 +1,7 @@
 CatPlay
-=======
-![CatPlay](db/img/catplay.png)
+=======  
+![CatPlay](db/img/catplay.png)  
+   
 Project is written with python and wxpython and delivered under GPL V3.
 
     CatPlay - Play your categorized songs.
@@ -19,5 +20,5 @@ Project is written with python and wxpython and delivered under GPL V3.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-More information about python: http://www.python.org
+More information about python: http://www.python.org   
 More information about wxpython: http://www.wxpython.org

@@ -354,7 +354,7 @@ class MainWindow (wx.Frame):
 
         self.__aboutInfo = wx.AboutDialogInfo()
         self.__aboutInfo.SetName('CatPlay')
-        self.__aboutInfo.SetVersion('1.0.0')
+        self.__aboutInfo.SetVersion('v0.0.1-alpha')
         self.__aboutInfo.SetDevelopers(['Marcus Pedersén'])
         self.__aboutInfo.SetCopyright('CatPlay (C) 2014 Marcus Pedersén')
         self.__aboutInfo.SetDescription(_('Play your categorized songs.'))
