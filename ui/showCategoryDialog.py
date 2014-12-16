@@ -106,5 +106,6 @@ class ShowCategoryDialog(wx.Frame):
 
         self.__filesList.DeleteAllItems()
 
-        for data in self.__files[category]:
-            i = self.__filesList.InsertStringItem(sys.maxint, data)
+        if category in self.__files:
+            for data in self.__files[category]:
+                i = self.__filesList.InsertStringItem(sys.maxint, data)

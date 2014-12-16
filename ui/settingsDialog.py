@@ -91,7 +91,8 @@ class SettingsDialog(wx.Dialog):
             self.__stepCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY, 
                                            value=properties["bpmStep"], choices=step)
         else:
-            self.__stepCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY)
+            self.__stepCombo = wx.ComboBox(panel, wx.ID_ANY, style=wx.CB_READONLY,
+                                           value="10", choices=step)
 
         stepSizer.Add(self.__stepCombo, 0, wx.ALL, 5)
         labelSizer.Add(stepSizer, 0, wx.ALL, 5)
