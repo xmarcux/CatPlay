@@ -111,7 +111,7 @@ def getMusicFiles():
         for root, dirs, files in  os.walk(prop["musicDir"]):
             for f in files:
                 ending =  os.path.splitext(f)[1] 
-                if ending == ".ogg" or ending == "mp3" or ending == ".wav" or ending == "m4a":
+                if ending == ".ogg" or ending == ".mp3" or ending == ".wav" or ending == ".m4a":
                     if prop["fileToken"]:
                         fSplit = f.split(prop["fileToken"])
                         if len(fSplit) == 4 and fSplit[0].isdigit():

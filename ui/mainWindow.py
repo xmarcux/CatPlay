@@ -411,6 +411,8 @@ class MainWindow (wx.Frame):
     def __onShowCategory(self, event):
         """Show category information dialog"""
 
+        self.__musicDict = f.getMusicFiles()
+
         dialog = showDialog.ShowCategoryDialog(self, self.__musicDict)
         dialog.Center()
         dialog.Show()
@@ -760,6 +762,7 @@ class MainWindow (wx.Frame):
             time.sleep(0.5)
             vol -= decrease
 
+        self.__playCtrl.Stop()
         self.__playCtrl.SetVolume(1.0)
 
         evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.__btnNext.GetId())
