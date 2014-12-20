@@ -21,7 +21,7 @@ class MainWindow (wx.Frame):
 
         wx.Frame.__init__(self, None, title=_('Cat Play'), size=(300, 300))
         self.__panel = wx.Panel(self, wx.ID_ANY)
-        self.Bind(wx.EVT_SIZE, self.__onResize)
+#        self.Bind(wx.EVT_SIZE, self.__onResize)
 
         #Set window image
         image = wx.Image('db' + os.sep + 'img' + os.sep + 'catplay.png', 
@@ -434,7 +434,7 @@ class MainWindow (wx.Frame):
     def __onPrevious(self, event):
         """Previous song button has been clicked."""
 
-        if self.__btnPlay.play == "play":
+        if self.__btnPlay.play == "play" or self.__btnPlay.play == "pause":
             if self.__currentSongNumber <= 0:
                 self.__currentSongNumber = len(self.__playList) - 1
             else:
@@ -444,14 +444,15 @@ class MainWindow (wx.Frame):
         
             if self.__timeCheckBox.GetValue():
                 self.__timer.cancel()
-            
-            self.__playCtrl.Play()
-            self.__startTimer()
+
+            if self.__btnPlay.play == "play":
+                self.__playCtrl.Play()
+                self.__startTimer()
 
     def __onNext(self, event):
         """Next song button has been clicked."""
 
-        if self.__btnPlay.play == "play":
+        if self.__btnPlay.play == "play" or self.__btnPlay.play == "pause":
             if self.__currentSongNumber >= len(self.__playList) + 1:
                 self.__currentSongNumber = 0
             else:
@@ -462,8 +463,9 @@ class MainWindow (wx.Frame):
             if self.__timeCheckBox.GetValue():
                 self.__timer.cancel()
 
-            self.__playCtrl.Play()
-            self.__startTimer()
+            if self.__btnPlay.play == "play":
+                self.__playCtrl.Play()
+                self.__startTimer()
 
 
     def __onPlay(self, event):
@@ -475,14 +477,6 @@ class MainWindow (wx.Frame):
             self.__menuPlayPlay.SetText(_('Play'))
             self.SetStatusText(_('Pause'))
             self.__btnPlay.play = "pause"
-            self.__fromAddBtn.Enable()
-            self.__fromSubBtn.Enable()
-            self.__toAddBtn.Enable()
-            self.__toSubBtn.Enable()
-            self.__timeCheckBox.Enable()
-            self.__timeAddBtn.Enable()
-            self.__timeSubBtn.Enable()
-            self.__categoryCombo.Enable()
             self.__playCtrl.Pause()
             
             if self.__timeCheckBox.GetValue():
@@ -689,6 +683,8 @@ class MainWindow (wx.Frame):
 
         self.__playList = []
 
+        self.__musicDict = f.getMusicFiles()
+
         if sys.platform == 'win32':
             tmpList = self.__musicDict[self.__categoryCombo.GetValue()]
         else:
@@ -764,6 +760,8 @@ class MainWindow (wx.Frame):
 
         self.__playCtrl.Stop()
         self.__playCtrl.SetVolume(1.0)
+
+        time.sleep(1.0)
 
         evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.__btnNext.GetId())
         wx.PostEvent(self.__btnNext, evt)
