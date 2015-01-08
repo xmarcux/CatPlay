@@ -33,7 +33,13 @@ class MainWindow (wx.Frame):
         #Get music files from directory
         self.__musicDict = f.getMusicFiles()
         #create play control
-        self.__playCtrl = m.MediaCtrl(parent=self.__panel)
+
+        if sys.platform == 'win32':
+            self.__playCtrl = m.MediaCtrl(parent=self.__panel, szBackend=wx.media.MEDIABACKEND_WMP10) #win szBackend=wx.media.MEDIABACKEND_WMP10
+        else:
+            self.__playCtrl = m.MediaCtrl(parent=self.__panel)
+
+        self.Bind(wx.media.EVT_MEDIA_LOADED, self.__songIsLoaded) #win
         self.__playCtrl.SetVolume(1.0)
 
         #Get properties from file
@@ -446,7 +452,7 @@ class MainWindow (wx.Frame):
                 self.__timer.cancel()
 
             if self.__btnPlay.play == "play":
-                self.__playCtrl.Play()
+                #self.__playCtrl.Play() win
                 self.__startTimer()
 
     def __onNext(self, event):
@@ -464,7 +470,7 @@ class MainWindow (wx.Frame):
                 self.__timer.cancel()
 
             if self.__btnPlay.play == "play":
-                self.__playCtrl.Play()
+                #self.__playCtrl.Play() win
                 self.__startTimer()
 
 
@@ -487,6 +493,9 @@ class MainWindow (wx.Frame):
             if self.__btnPlay.play == "stop":
                 self.__loadFile()
 
+            if self.__btnPlay.play == "pause": #win
+                self.__playCtrl.Play()
+
             self.__btnPlay.SetBitmapLabel(self.__bpmPause)
             self.__btnPlay.SetBitmapSelected(self.__bpmPausePressed)
             self.__menuPlayPlay.SetText(_('Pause'))
@@ -501,7 +510,7 @@ class MainWindow (wx.Frame):
             self.__timeSubBtn.Disable()
             self.__categoryCombo.Disable()
 
-            self.__playCtrl.Play()
+            #self.__playCtrl.Play() win
             self.__startTimer()
 
     def __onStop(self, event):
@@ -726,6 +735,15 @@ class MainWindow (wx.Frame):
                 self.__currentTitleLbl.SetLabel(fileName[3])
                 self.__playCtrl.Stop()
                 self.__playCtrl.Load(self.__playList[self.__currentSongNumber])
+
+
+    def __songIsLoaded(self, evt): #win
+        """
+        Function is called when song
+        is loaded. Bound to media ctrl.
+        """
+        if self.__btnPlay.play != "pause":
+            self.__playCtrl.Play()
 
 
     def __startTimer(self):
