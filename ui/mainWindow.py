@@ -35,11 +35,12 @@ class MainWindow (wx.Frame):
         #create play control
 
         if sys.platform == 'win32':
-            self.__playCtrl = m.MediaCtrl(parent=self.__panel, szBackend=wx.media.MEDIABACKEND_WMP10) #win szBackend=wx.media.MEDIABACKEND_WMP10
+            self.__playCtrl = m.MediaCtrl(parent=self.__panel, szBackend=wx.media.MEDIABACKEND_WMP10)
         else:
             self.__playCtrl = m.MediaCtrl(parent=self.__panel)
 
-        self.Bind(wx.media.EVT_MEDIA_LOADED, self.__songIsLoaded) #win
+        self.Bind(wx.media.EVT_MEDIA_LOADED, self.__songIsLoaded)
+        self.Bind(wx.media.EVT_MEDIA_FINISHED, self.__playNext)
         self.__playCtrl.SetVolume(1.0)
 
         #Get properties from file
@@ -204,8 +205,10 @@ class MainWindow (wx.Frame):
         bpmSizer = wx.BoxSizer(wx.HORIZONTAL)
         fromBpmBox = wx.StaticBox(self.__panel, wx.ID_ANY, _('From BPM:'))
         self.__fromBpmSizer = wx.StaticBoxSizer(fromBpmBox, wx.VERTICAL)
+        self.__fromBpm = "140"
         if "fromBpm" in self.__prop:
             self.__fromBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, self.__prop["fromBpm"])
+            self.__fromBpm = self.__prop["fromBpm"]
         else:
             self.__fromBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, "140")
         bpmFont = wx.Font(80, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
@@ -234,8 +237,10 @@ class MainWindow (wx.Frame):
         #to BPM control
         toBpmBox = wx.StaticBox(self.__panel, wx.ID_ANY, _('To BPM:'))
         toBpmSizer = wx.StaticBoxSizer(toBpmBox, wx.VERTICAL)
+        self.__toBpm = "160"
         if "toBpm" in self.__prop:
             self.__toBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, self.__prop["toBpm"])
+            self.__toBpm = self.__prop["toBpm"]
         else: 
             self.__toBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, "160")
         self.__toBpmLbl.SetFont(bpmFont)
@@ -262,12 +267,14 @@ class MainWindow (wx.Frame):
         #get categories from file
         coi = f.getCategories().values()
         coi.sort()
+        self.__category = ""
 
         if len(coi):
             index = 0
             if "category" in self.__prop:
                 if (self.__prop["category"] in coi) and (len(coi) > 0):
                     index = coi.index(self.__prop["category"])
+                self.__category = coi[index]
             if sys.platform == 'win32':
                 self.__categoryCombo = wx.ComboBox(self.__panel, wx.ID_ANY, style=wx.CB_READONLY, 
                                                    value=coi[index], choices=coi)
@@ -288,8 +295,10 @@ class MainWindow (wx.Frame):
         #Song time
         timeBox = wx.StaticBox(self.__panel, wx.ID_ANY, _('Time between song changes:'))
         timeBoxSizer = wx.StaticBoxSizer(timeBox, wx.VERTICAL)
+        self.__time = "02:30"
         if "time" in self.__prop:
             self.__timeCheckBox = wx.CheckBox(self.__panel, wx.ID_ANY, self.__prop["time"])
+            self.__time = self.__prop["time"]
         else:
             self.__timeCheckBox = wx.CheckBox(self.__panel, wx.ID_ANY, "02:30")
         timeFont = wx.Font(20, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
@@ -346,12 +355,12 @@ class MainWindow (wx.Frame):
                                        (wx.ACCEL_CTRL, ord('S'), keyStop),
                                        (wx.ACCEL_CTRL, ord('B'), keyPrevious),
                                        (wx.ACCEL_CTRL, ord('N'), keyNext),
-                                       (wx.ACCEL_CTRL, ord('+'), keyFromBpmPlus),
-                                       (wx.ACCEL_CTRL, ord('-'), keyFromBpmMinus),
-                                       (wx.ACCEL_CTRL | wx.ACCEL_ALT, ord('+'), keyToBpmPlus),
-                                       (wx.ACCEL_CTRL | wx.ACCEL_ALT, ord('-'), keyToBpmMinus),
-                                       (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('+'), keyTimePlus),
-                                       (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('-'), keyTimeMinus)
+                                       (wx.ACCEL_CTRL, ord('1'), keyFromBpmPlus),
+                                       (wx.ACCEL_CTRL, ord('2'), keyFromBpmMinus),
+                                       (wx.ACCEL_CTRL, ord('3'), keyToBpmPlus),
+                                       (wx.ACCEL_CTRL, ord('4'), keyToBpmMinus),
+                                       (wx.ACCEL_CTRL, ord('5'), keyTimePlus),
+                                       (wx.ACCEL_CTRL, ord('6'), keyTimeMinus)
                                      ])
         self.SetAcceleratorTable(acc_tbl)
 
@@ -360,7 +369,7 @@ class MainWindow (wx.Frame):
 
         self.__aboutInfo = wx.AboutDialogInfo()
         self.__aboutInfo.SetName('CatPlay')
-        self.__aboutInfo.SetVersion('v0.0.1-alpha')
+        self.__aboutInfo.SetVersion('V0.9.0')
         self.__aboutInfo.SetDevelopers(['Marcus Pedersén'])
         self.__aboutInfo.SetCopyright('CatPlay (C) 2014 Marcus Pedersén')
         self.__aboutInfo.SetDescription(_('Play your categorized songs.'))
@@ -441,6 +450,7 @@ class MainWindow (wx.Frame):
         """Previous song button has been clicked."""
 
         if self.__btnPlay.play == "play" or self.__btnPlay.play == "pause":
+            self.__reloadPlaylistIfChanged()
             if self.__currentSongNumber <= 0:
                 self.__currentSongNumber = len(self.__playList) - 1
             else:
@@ -452,13 +462,13 @@ class MainWindow (wx.Frame):
                 self.__timer.cancel()
 
             if self.__btnPlay.play == "play":
-                #self.__playCtrl.Play() win
                 self.__startTimer()
 
     def __onNext(self, event):
         """Next song button has been clicked."""
 
         if self.__btnPlay.play == "play" or self.__btnPlay.play == "pause":
+            self.__reloadPlaylistIfChanged()
             if self.__currentSongNumber >= len(self.__playList) + 1:
                 self.__currentSongNumber = 0
             else:
@@ -470,7 +480,6 @@ class MainWindow (wx.Frame):
                 self.__timer.cancel()
 
             if self.__btnPlay.play == "play":
-                #self.__playCtrl.Play() win
                 self.__startTimer()
 
 
@@ -493,7 +502,7 @@ class MainWindow (wx.Frame):
             if self.__btnPlay.play == "stop":
                 self.__loadFile()
 
-            if self.__btnPlay.play == "pause": #win
+            if self.__btnPlay.play == "pause":
                 self.__playCtrl.Play()
 
             self.__btnPlay.SetBitmapLabel(self.__bpmPause)
@@ -501,16 +510,6 @@ class MainWindow (wx.Frame):
             self.__menuPlayPlay.SetText(_('Pause'))
             self.SetStatusText(_('Play'))
             self.__btnPlay.play = "play"
-            self.__fromAddBtn.Disable()
-            self.__fromSubBtn.Disable()
-            self.__toAddBtn.Disable()
-            self.__toSubBtn.Disable()
-            self.__timeCheckBox.Disable()
-            self.__timeAddBtn.Disable()
-            self.__timeSubBtn.Disable()
-            self.__categoryCombo.Disable()
-
-            #self.__playCtrl.Play() win
             self.__startTimer()
 
     def __onStop(self, event):
@@ -609,46 +608,45 @@ class MainWindow (wx.Frame):
     def __onTimePlus(self, event):
         """Plus button on song time clicked."""
 
-        if self.__timeCheckBox.GetValue():
-            min = int(self.__timeCheckBox.GetLabel().split(':')[0])
-            sec = int(self.__timeCheckBox.GetLabel().split(':')[1])
-            if min < 20:
-                if sec >= 55:
-                    sec = 0
-                    min += 1
-                else:
-                    sec += 5
+        min = int(self.__timeCheckBox.GetLabel().split(':')[0])
+        sec = int(self.__timeCheckBox.GetLabel().split(':')[1])
+        if min < 20:
+            if sec >= 55:
+                sec = 0
+                min += 1
+            else:
+                sec += 5
 
-                sMin = str(min)
-                sSec = str(sec)
-                if min < 10:
-                    sMin = '0' + sMin
-                if sec < 10:
-                    sSec = '0' + sSec
+            sMin = str(min)
+            sSec = str(sec)
+            if min < 10:
+                sMin = '0' + sMin
+            if sec < 10:
+                sSec = '0' + sSec
 
-                self.__timeCheckBox.SetLabel(sMin + ':' + sSec)
+            self.__timeCheckBox.SetLabel(sMin + ':' + sSec)
 
     def __onTimeMinus(self, event):
         """Minus button on song time clicked."""
 
-        if self.__timeCheckBox.GetValue():
-            min = int(self.__timeCheckBox.GetLabel().split(':')[0])
-            sec = int(self.__timeCheckBox.GetLabel().split(':')[1])
-            if not (min == 0 and sec == 0):
-                if sec == 0:
-                    sec = 55
-                    min -= 1
-                else:
+        min = int(self.__timeCheckBox.GetLabel().split(':')[0])
+        sec = int(self.__timeCheckBox.GetLabel().split(':')[1])
+        if not (min == 0 and sec == 0):
+            if sec == 0:
+                sec = 55
+                min -= 1
+            else:
+                if not (min == 0 and sec <= 20):
                     sec -= 5
 
-                sMin = str(min)
-                sSec = str(sec)
-                if min < 10:
-                    sMin = '0' + sMin
-                if sec < 10:
-                    sSec = '0' + sSec
+            sMin = str(min)
+            sSec = str(sec)
+            if min < 10:
+                sMin = '0' + sMin
+            if sec < 10:
+                sSec = '0' + sSec
 
-                self.__timeCheckBox.SetLabel(sMin + ':' + sSec)
+            self.__timeCheckBox.SetLabel(sMin + ':' + sSec)
 
     def __onClose(self, event):
         """Is called when window is closing."""
@@ -737,7 +735,7 @@ class MainWindow (wx.Frame):
                 self.__playCtrl.Load(self.__playList[self.__currentSongNumber])
 
 
-    def __songIsLoaded(self, evt): #win
+    def __songIsLoaded(self, evt):
         """
         Function is called when song
         is loaded. Bound to media ctrl.
@@ -745,6 +743,15 @@ class MainWindow (wx.Frame):
         if self.__btnPlay.play != "pause":
             self.__playCtrl.Play()
 
+    def __playNext(self, evt):
+        """
+        Function is called when song
+        has finished playing.
+        """
+        self.__reloadPlaylistIfChanged()
+        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.__btnNext.GetId())
+        wx.PostEvent(self.__btnNext, evt)
+        
 
     def __startTimer(self):
         """
@@ -752,13 +759,14 @@ class MainWindow (wx.Frame):
         after set time.
         """
 
-        if self.__timeCheckBox.GetValue():
-            min = int(self.__timeCheckBox.GetLabel().split(':')[0])
-            sec = int(self.__timeCheckBox.GetLabel().split(':')[1])
-            sec = int(sec) + int(min) * 60
-            sec = sec - self.__fadeTime
+        min = int(self.__timeCheckBox.GetLabel().split(':')[0])
+        sec = int(self.__timeCheckBox.GetLabel().split(':')[1])
+        sec = int(sec) + int(min) * 60
+        sec = sec - self.__fadeTime
         
-            self.__timer = threading.Timer(sec, self.__fadeChangeSong)
+        self.__timer = threading.Timer(sec, self.__fadeChangeSong)
+
+        if self.__timeCheckBox.GetValue():
             self.__timer.start()
 
     def __fadeChangeSong(self):
@@ -769,7 +777,7 @@ class MainWindow (wx.Frame):
         """
 
         vol = 1.0
-        decrease = 1.0/self.__fadeTime
+        decrease = 1.0/(self.__fadeTime * 2)
 
         while vol > 0.0:
             self.__playCtrl.SetVolume(vol)
@@ -781,6 +789,12 @@ class MainWindow (wx.Frame):
 
         time.sleep(1.0)
 
+        """
+        Check if bpm, category or time has change.
+        If they have update variables and reload playlist.
+        """
+        self.__reloadPlaylistIfChanged()
+
         evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.__btnNext.GetId())
         wx.PostEvent(self.__btnNext, evt)
 
@@ -790,4 +804,40 @@ class MainWindow (wx.Frame):
             self.__playCtrl.SetVolume(vol)
             time.sleep(0.5)
 
-            
+    def __reloadPlaylistIfChanged(self):
+        """
+        Checks if bpm, category or/and time
+        has changed since last time.
+        If any of them have changed,
+        variables are updated and 
+        new playlist is loaded.
+        """
+
+        changed = False
+        toBpm = self.__toBpmLbl.GetLabel()
+        fromBpm = self.__fromBpmLbl.GetLabel()
+        time = self.__timeCheckBox.GetLabel()
+
+        if sys.platform == 'win32':
+            category = self.__categoryCombo.GetValue()
+        else:
+            category = self.__categoryCombo.GetLabelText()
+
+
+        if toBpm != self.__toBpm:
+            self.__toBpm = toBpm
+            changed = True
+
+        if fromBpm != self.__fromBpm:
+            self.__fromBpm = fromBpm
+            changed = True
+
+        if category != self.__category:
+            self.__category = category
+            changed = True
+
+        if time != self.__time:
+            self.__time = time
+            changed = True
+
+        self.__createPlayList()
