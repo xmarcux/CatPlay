@@ -5,7 +5,7 @@ CatPlay
 Project is written with python and wxpython and delivered under GPL V3.
 
     CatPlay - Play your categorized songs.
-    Copyright (C) 2014  Marcus Pedersén
+    Copyright (C) 2014-2015  Marcus Pedersén
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
