@@ -11,6 +11,7 @@ import wx.media as m
 import settingsDialog as sDialog
 import categoryDialog as cDialog
 import showCategoryDialog as showDialog
+import infoDialog as iDialog
 import filectrl as f
 
 class MainWindow (wx.Frame):
@@ -53,6 +54,8 @@ class MainWindow (wx.Frame):
 
         self.__fadeTime = 10
 
+        self.__infoDialog = 0
+
         self.CreateStatusBar()
         self.SetMenuBar(self.__createMenu())
 
@@ -67,6 +70,7 @@ class MainWindow (wx.Frame):
         self.SetMinSize(self.GetEffectiveMinSize())
         self.Center()
         self.__panel.SetFocus()
+        self.__panel.Bind(wx.EVT_LEFT_UP, self.__onShowInfoDialog)
 
         if not sys.platform == 'win32':
             self.__sizeRatioHeight = (self.GetSize().GetHeight()/self.__fromBpmLbl.GetFont().GetPointSize())
@@ -186,7 +190,10 @@ class MainWindow (wx.Frame):
         #Info current song
         txtFont = wx.Font(18, wx.DECORATIVE, wx.NORMAL, wx.NORMAL)
         infoBox = wx.StaticBox(self.__panel, wx.ID_ANY, _('Current song playing:'))
-        infoSizer = wx.StaticBoxSizer(infoBox, wx.HORIZONTAL)
+
+        mainInfoSizer = wx.StaticBoxSizer(infoBox, wx.VERTICAL) #new labels
+        #infoSizer = wx.StaticBoxSizer(infoBox, wx.HORIZONTAL) #new labels
+        infoSizer = wx.BoxSizer(wx.HORIZONTAL) #new labels
         artistLbl = wx.StaticText(self.__panel, wx.ID_ANY, _('Artist:'))
         artistLbl.SetFont(txtFont)
         self.__currentArtistLbl = wx.StaticText(self.__panel, wx.ID_ANY, _(''))
@@ -199,7 +206,30 @@ class MainWindow (wx.Frame):
         infoSizer.Add(self.__currentArtistLbl, 1, wx.ALL | wx.ALIGN_LEFT, 5)
         infoSizer.Add(songLbl, 0, wx.ALL | wx.ALIGN_RIGHT, 5)
         infoSizer.Add(self.__currentTitleLbl, 1, wx.ALL | wx.ALIGN_RIGHT, 5)
-        self.__mainSizer.Add(infoSizer, 0, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER, 5)
+
+        #new labels
+        infoSizer2 = wx.BoxSizer(wx.HORIZONTAL)
+        bpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, _('Bpm:'))
+        bpmLbl.SetFont(txtFont)
+        self.__currentBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, _(''))
+        self.__currentBpmLbl.SetFont(txtFont)
+        timeLbl = wx.StaticText(self.__panel, wx.ID_ANY, _('Time:'))
+        timeLbl.SetFont(txtFont)
+        self.__currentTimeLbl = wx.StaticText(self.__panel, wx.ID_ANY, _(''))
+        self.__currentTimeLbl.SetFont(txtFont)
+        self.__timeTimer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.__updateTime)
+        self.__timeTimer.Start(100)
+        infoSizer2.Add(bpmLbl, 0, wx.ALL | wx.ALIGN_LEFT, 5)
+        infoSizer2.Add(self.__currentBpmLbl, 1, wx.ALL | wx.ALIGN_LEFT, 5)
+        infoSizer2.Add(timeLbl, 0, wx.ALL | wx.ALIGN_RIGHT, 5)
+        infoSizer2.Add(self.__currentTimeLbl, 1, wx.ALL | wx.ALIGN_RIGHT, 5)
+        #new labels
+
+        mainInfoSizer.Add(infoSizer, 1, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER, 5) #new labels
+        mainInfoSizer.Add(infoSizer2, 1, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER, 5) #new labels
+        #self.__mainSizer.Add(infoSizer, 0, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER, 5) #new labels
+        self.__mainSizer.Add(mainInfoSizer, 0, wx.ALL | wx.EXPAND | wx.ALIGN_CENTER, 5) 
 
         #from BPM control
         bpmSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -211,7 +241,7 @@ class MainWindow (wx.Frame):
             self.__fromBpm = self.__prop["fromBpm"]
         else:
             self.__fromBpmLbl = wx.StaticText(self.__panel, wx.ID_ANY, "140")
-        bpmFont = wx.Font(80, wx.DECORATIVE, wx.NORMAL, wx.BOLD)
+        bpmFont = wx.Font(20, wx.DECORATIVE, wx.NORMAL, wx.BOLD) # size was 80
         self.__fromBpmLbl.SetFont(bpmFont)
         self.__fromBpmSizer.Add(self.__fromBpmLbl, 1, wx.ALL, 5)
         btnSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -531,6 +561,10 @@ class MainWindow (wx.Frame):
         self.__categoryCombo.Enable()
         self.__playCtrl.Stop()
 
+        self.__currentBpmLbl.SetLabel(' ')
+        self.__currentTitleLbl.SetLabel(' ')
+        self.__currentArtistLbl.SetLabel(' ')
+
         try:
             self.__timer.cancel()
         except:
@@ -554,7 +588,8 @@ class MainWindow (wx.Frame):
 
         newValue = int(self.__fromBpmLbl.GetLabel()) + self.__bpmStep
         if newValue > int(self.__toBpmLbl.GetLabel()):
-            newValue = int(self.__toBpmLbl.GetLabel())
+            self.__toBpmLbl.SetLabel(str(newValue))
+            #newValue = int(self.__toBpmLbl.GetLabel())
 
         if newValue < 100:
             newValue = '  ' + str(newValue)
@@ -596,7 +631,8 @@ class MainWindow (wx.Frame):
 
         newValue = int(self.__toBpmLbl.GetLabel()) - self.__bpmStep
         if newValue < int(self.__fromBpmLbl.GetLabel()):
-            newValue = int(self.__fromBpmLbl.GetLabel())
+            self.__fromBpmLbl.SetLabel(str(newValue))
+            #newValue = int(self.__fromBpmLbl.GetLabel())
 
         if newValue < 100:
             newValue = '  ' + str(newValue)
@@ -681,6 +717,18 @@ class MainWindow (wx.Frame):
 
         event.Skip()
 
+    def __onShowInfoDialog(self, event):
+        """Shows info dialog."""
+
+        if not isinstance(self.__infoDialog, iDialog.InfoDialog):
+            self.__infoDialog = iDialog.InfoDialog(self)
+            self.__infoDialog.Center()
+            self.__infoDialog.Show()
+        elif not self.__infoDialog.IsShown():
+            self.__infoDialog = iDialog.InfoDialog(self)
+            self.__infoDialog.Center()
+            self.__infoDialog.Show()
+
     def __createPlayList(self):
         """
         Method creates the current
@@ -729,11 +777,15 @@ class MainWindow (wx.Frame):
             fileName = fileName[len(fileName)-1].split('.')[0]
             fileName = fileName.split(token)
             if len(fileName) >= 4:
+                self.__currentBpmLbl.SetLabel(fileName[0])
                 self.__currentArtistLbl.SetLabel(fileName[2])
                 self.__currentTitleLbl.SetLabel(fileName[3])
                 self.__playCtrl.Stop()
                 self.__playCtrl.Load(self.__playList[self.__currentSongNumber])
 
+                if isinstance(self.__infoDialog, iDialog.InfoDialog):
+                    if self.__infoDialog.IsShown():
+                        self.__infoDialog.setBPM(fileName[0])
 
     def __songIsLoaded(self, evt):
         """
@@ -841,3 +893,25 @@ class MainWindow (wx.Frame):
             changed = True
 
         self.__createPlayList()
+
+
+    def __updateTime(self, event):
+        """
+        Updates time past for current song.
+        Method is called from a wx timer.
+        """
+
+        sec = ' '
+        if self.__btnPlay.play == "play":
+            sec = int(self.__playCtrl.Tell())/1000
+            min = sec/60
+            sec = sec%60
+            if sec < 10:
+                sec = "0" + str(sec)
+            sec = str(min) + ":" + str(sec)
+
+        self.__currentTimeLbl.SetLabel(sec)
+
+        if isinstance(self.__infoDialog, iDialog.InfoDialog):
+            if self.__infoDialog.IsShown():
+                self.__infoDialog.setTime(sec)
